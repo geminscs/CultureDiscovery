@@ -72,13 +72,20 @@ class DiscriminativeDetector(object):
                 dis_mat = dis_tensor[i, proposal[0]:proposal[2], proposal[1]:proposal[3]]
             else:
                 dis_mat = dis_tensor[i, proposal[1]:proposal[3], proposal[0]:proposal[2]]
-            res[i] = np.amax(dis_mat)
-            #res[i] = 1 / (1 + np.exp(-1 * res[i]))
-            if res[i] > 1:
-                res[i] = 1
-            elif res[i] < -1:
-                res[i] = -1
-        res = res / sum(res)
+            #res[i] = np.amax(dis_mat)
+            res[i] = np.sum(dis_mat) / (dis_mat.shape[0] * dis_mat.shape[1])
+            res[i] = 1 / (1 + np.exp(-1 * res[i]))
+            if res[i] < 0.01:
+                res[i] = 0
+            """elif res[i] < -1:
+                res[i] = -1"""
+
+        res = np.array(res)
+        index = np.argsort(res)
+        res[index[0:- 5]] = 0
+        if sum(res) > 0:
+            res = res / sum(res)
+        #res = np.amax(res)
         if len(cls.classifier_weight) != 0:
             res = res * cls.classifier_weight
         return res
@@ -91,6 +98,15 @@ class DiscriminativeDetector(object):
             dis_vec = cls.dis_detector(dis_tensor, proposal, axis=axis)
             res[i, :] = dis_vec
         return res
+
+    @classmethod
+    def batch_dis_detector_single(cls, dis_tensor, proposals, axis=0):
+        res = []
+        for i in range(proposals.shape[0]):
+            proposal = proposals[i]
+            dis_vec = cls.dis_detector(dis_tensor, proposal, axis=axis)
+            res.append(dis_vec)
+        return np.array(res).reshape((1, len(res)))
 
     @classmethod
     def get_weight(cls, path_p, path_n):
@@ -114,7 +130,7 @@ class DiscriminativeDetector(object):
             fire_p = len(confidence_p[confidence_p >= 0]) + 1
             confidence_n = cls.classifiers[i].decision_function(fn_mat)
             fire_n = len(confidence_n[confidence_n >= 0]) + 1
-            weight[i] = fire_p / float(fire_n)
+            weight[i] = 1 / float(fire_n)
         cls.classifier_weight = weight
 
     @classmethod
@@ -138,6 +154,6 @@ if __name__ == "__main__":
     DiscriminativeDetector.add_classifier("/Users/admin/Desktop/Patch/20160613_kyoto/clfs_1.pkl")
     DiscriminativeDetector.add_classifier("/Users/admin/Desktop/Patch/20160613_kyoto/clfs_2.pkl")
     DiscriminativeDetector.get_weight("/Users/admin/Desktop/kyoto2_feature.pkl", "/Users/admin/Desktop/nature_feature.pkl")
-    f = open("/Users/admin/Desktop/NewExp/weights.pkl", "wb")
+    f = open("/Users/admin/Desktop/NewExp/weights2.pkl", "wb")
     pickle.dump(DiscriminativeDetector.classifier_weight, f)
     f.close()
