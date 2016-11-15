@@ -64,6 +64,25 @@ class FeatureExtractor(object):
         return feature
 
     @classmethod
+    def iterate_full_feature(cls, images, feature_path=None):
+        """
+        Generate feature of full images iterately
+        :param image: Input images
+        :return: Feature matrix
+        """
+        if not feature_path:
+            feature = np.load(feature_path)
+            return feature
+        feature = np.zeros((images.shape[0], 4096))
+        for i in range(images.shape[0]):
+            img = images[i]
+            img = misc.imresize(img, (224, 224, 3))
+            img = img.transpose((2, 0, 1))
+            img = np.expand_dims(img, axis=0)
+            feature[i, :] = cls.feature_model.predict(img)[0]
+        return feature
+
+    @classmethod
     def batch_feature(cls, proposals, image, axis=0):
         """
         Generate feature for a batch of images

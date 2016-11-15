@@ -38,9 +38,11 @@ class DiscriminativeDetector(object):
                             cls.params["feature_len"]))
         count = 0
         for i in range(0, image_shape[0] - patch_size + 1):
-            for j in range(0, image_shape[0] - patch_size + 1):
+            for j in range(0, image_shape[1] - patch_size + 1):
                 image_part = image_feature_map[i:i + patch_size, j:j + patch_size, :]
                 image_part = image_part.ravel()
+                if len(image_part) != 800:
+                    print i
                 image_part = image_part.reshape((1, cls.params["feature_len"]))
                 dis_mat[count, :] = image_part
                 count += 1
@@ -72,20 +74,42 @@ class DiscriminativeDetector(object):
                 dis_mat = dis_tensor[i, proposal[0]:proposal[2], proposal[1]:proposal[3]]
             else:
                 dis_mat = dis_tensor[i, proposal[1]:proposal[3], proposal[0]:proposal[2]]
-            #res[i] = np.amax(dis_mat)
-            res[i] = np.sum(dis_mat) / (dis_mat.shape[0] * dis_mat.shape[1])
-            res[i] = 1 / (1 + np.exp(-1 * res[i]))
-            if res[i] < 0.01:
+            res[i] = np.amax(dis_mat)
+            #res[i] = np.sum(dis_mat) / (dis_mat.shape[0] * dis_mat.shape[1])
+            if res[i] < 0:
                 res[i] = 0
+            #else:
+                #res[i] = 1 / (1 + np.exp(-5 * (res[i] - 1)))
             """elif res[i] < -1:
                 res[i] = -1"""
 
         res = np.array(res)
         index = np.argsort(res)
-        res[index[0:- 5]] = 0
-        if sum(res) > 0:
-            res = res / sum(res)
+        res[index[0:-5]] = 0
+        if np.sum(res) > 0:
+            res = res / np.sum(res)
         #res = np.amax(res)
+        if len(cls.classifier_weight) != 0:
+            res = res * cls.classifier_weight
+        return res
+
+    @classmethod
+    def dis_detector_single(cls, dis_tensor, proposal, axis=0):
+
+        proposal = proposal / cls.params["bins"]
+        if proposal[0] == proposal[2]:
+            proposal[2] += 1
+        if proposal[1] == proposal[3]:
+            proposal[3] += 1
+        res = [0] * len(cls.classifiers)
+        for i in range(len(cls.classifiers)):
+            if axis == 0:
+                dis_mat = dis_tensor[i, proposal[0]:proposal[2], proposal[1]:proposal[3]]
+            else:
+                dis_mat = dis_tensor[i, proposal[1]:proposal[3], proposal[0]:proposal[2]]
+            res[i] = np.amax(dis_mat)
+            res[i] = 1 / (1 + np.exp(-5 * res[i]))
+        res = np.amax(res)
         if len(cls.classifier_weight) != 0:
             res = res * cls.classifier_weight
         return res
@@ -104,7 +128,7 @@ class DiscriminativeDetector(object):
         res = []
         for i in range(proposals.shape[0]):
             proposal = proposals[i]
-            dis_vec = cls.dis_detector(dis_tensor, proposal, axis=axis)
+            dis_vec = cls.dis_detector_single(dis_tensor, proposal, axis=axis)
             res.append(dis_vec)
         return np.array(res).reshape((1, len(res)))
 

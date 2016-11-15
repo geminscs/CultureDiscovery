@@ -19,4 +19,5 @@ class SimilarityCalculator(object):
         dis_mat2 = DiscriminativeDetector.batch_dis_detector(dis_tensor2, proposal2, axis=1)
         dis_mat = np.dot(dis_mat1, dis_mat2.T)
         res = sim_mat * dis_mat
+        res = np.amax(res, axis=1)
         return res
